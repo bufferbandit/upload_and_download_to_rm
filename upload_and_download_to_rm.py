@@ -138,7 +138,7 @@ def upload(fname):
 		
 def list_files(url=PRESUMED_SERVICE_URL):    
 	headers = {"Authorization": f"Bearer {token}"}    
-			payload = [{
+	payload = [{
                 "ID": str(uuid4()),
                 "Type": "DocumentType",
                 "Version": 1
