@@ -1,19 +1,18 @@
-import json
 import os
 import sys
-import tempfile
+import json
 import time
-from configparser import ConfigParser
-from io import BytesIO
-from uuid import uuid4
-from zipfile import ZipFile, ZIP_DEFLATED
-
 import img2pdf
 import requests
-
+import tempfile
 from io import BytesIO
+from uuid import uuid4
+from librM2svg import rm2svg
+from configparser import ConfigParser
+from zipfile import ZipFile, ZIP_DEFLATED
 
-from librM2svg import rm2svg 
+
+
 
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "upload_and_download_to_rm.cfg")
@@ -28,6 +27,7 @@ PRESUMED_SERVICE_URL = "https://document-storage-production-dot-remarkable-produ
 # Changing this probably breaks things, even if you're not on Windows
 DEVICE_DESC = "desktop-windows"
 
+
 def register_device(connect_code, device_id):
     headers = {"Authorization": "Bearer"}
     payload = {
@@ -35,12 +35,14 @@ def register_device(connect_code, device_id):
         "deviceDesc": DEVICE_DESC,
         "deviceID": device_id
     }
-    r = requests.post(REGISTRATION_URL, headers=headers, data=json.dumps(payload))
+    r = requests.post(REGISTRATION_URL, headers=headers,
+                      data=json.dumps(payload))
     if r.status_code != 200:
         print("Device registration failed (invalid code?):")
         print(f"{r.status_code}: {r.text}")
         sys.exit()
     return r.text
+
 
 def refresh_token(token):
     headers = {"Authorization": f"Bearer {token}"}
@@ -51,12 +53,14 @@ def refresh_token(token):
         sys.exit()
     return r.text
 
+
 def service_discovery():
     r = requests.get(SERVICE_DISCOVERY_URL)
     if r.status_code != 200:
         print("Service discovery failed, but let's still try using the presumed url!")
         return PRESUMED_SERVICE_URL
     return json.loads(r.text)['Host']
+
 
 def upload_img(fname, url=PRESUMED_SERVICE_URL):
     display_name = fname.split("\\")[-1]
@@ -65,7 +69,11 @@ def upload_img(fname, url=PRESUMED_SERVICE_URL):
         temp.seek(0)
         upload_pdf(temp.read(), display_name, url)
 
-def upload_pdf(pdf_file, display_name="UploadedFile", url=PRESUMED_SERVICE_URL):
+
+def upload_pdf(
+        pdf_file,
+        display_name="UploadedFile",
+        url=PRESUMED_SERVICE_URL):
     # Make an upload request
     headers = {"Authorization": f"Bearer {token}"}
     payload = [{
@@ -109,12 +117,13 @@ def upload_pdf(pdf_file, display_name="UploadedFile", url=PRESUMED_SERVICE_URL):
     if not r2.ok:
         return
 
-    # Apparently it's required to update metadata for the file to become visible ?
+    # Apparently it's required to update metadata for the file to become
+    # visible ?
     metadata = {
         "ID": doc_id,
         "Parent": "",
         "VissibleName": display_name,
-        "LastModified": str(round(time.time()*1000)),
+        "LastModified": str(round(time.time() * 1000)),
         "Type": "DocumentType",
         "Version": 1
     }
@@ -134,24 +143,28 @@ def upload(fname):
         return upload_img(fname)
     else:
         print("Unsupported filetype: {fname}")
-		
-def list_files(url=PRESUMED_SERVICE_URL):    
-    headers = {"Authorization": f"Bearer {token}"}    
-    payload = [{
-            "ID": str(uuid4()),
-            "Type": "DocumentType",
-            "Version": 1
-        }]
-    r = requests.get(
-            f"{url}/document-storage/json/2/docs?withBlob=true",
-            headers=headers)
-    return r.json()
-		
-def get_file(filename,url=PRESUMED_SERVICE_URL):
-    for file in list_files(url):
-        if file["VissibleName"] == filename:            return file
 
-def download_file_as_blob(file={}, filename="",url=PRESUMED_SERVICE_URL):
+
+def list_files(url=PRESUMED_SERVICE_URL):
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = [{
+        "ID": str(uuid4()),
+        "Type": "DocumentType",
+        "Version": 1
+    }]
+    r = requests.get(
+        f"{url}/document-storage/json/2/docs?withBlob=true",
+        headers=headers)
+    return r.json()
+
+
+def get_file(filename, url=PRESUMED_SERVICE_URL):
+    for file in list_files(url):
+        if file["VissibleName"] == filename:
+            return file
+
+
+def download_file_as_blob(file={}, filename="", url=PRESUMED_SERVICE_URL):
     if not file:
         file = get_file(filename)
     if not filename:
@@ -159,34 +172,46 @@ def download_file_as_blob(file={}, filename="",url=PRESUMED_SERVICE_URL):
     blob_url = file["BlobURLGet"]
     blob = requests.get(blob_url, stream=True)
     return blob.content
-    
+
+
 def save_downloaded_blob_file(blob):
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
         temp_file.write(blob)
         temp_file.close()
         return temp_file.name
 
+
 def blob_file_to_ZipFile(blob):
     filebytes = BytesIO(blob)
     return ZipFile(filebytes)
 
+
 def extract_rm_files_from_blob_in_memory(blob):
-    zip = blob_file_to_ZipFile(blob)    
-    return get_svgs_from_zip(zip)
+    zip = blob_file_to_ZipFile(blob)
+    return get_svg_files_from_zip(zip)
+
 
 def extract_rm_files_from_blob_on_disk(blob):
     filename = save_downloaded_blob_file(blob)
     zip = ZipFile(filename)
-    return get_svgs_from_zip(zip)
+    return get_svg_files_from_zip(zip)
 
-def get_svgs_from_zip(zip):
+
+def get_svg_files_from_zip(zip):
     for file in zip.namelist():
         if file.split("/")[1:] and file.endswith(".rm"):
-                rMfile = zip.read(file)
-                s = rm2svg(rMfile)
-                print(s)
-                print("\n\n\n\n")
-                
+            rMfile = zip.read(file)
+            yield rm2svg(rMfile)
+
+def get_svg_files_from_blob(blob ,memory=True):
+    if memory:return extract_rm_files_from_blob_in_memory(blob)
+    else:return extract_rm_files_from_blob_on_disk(blob)
+
+def get_pages_as_svg(filename):
+    file = get_file(filename)
+    blob = download_file_as_blob(file)
+    for svg in get_svg_files_from_blob(blob):
+        yield svg
 
 
 if __name__ == "__main__":
@@ -209,9 +234,6 @@ if __name__ == "__main__":
     device_id = config["SETTINGS"]["DEVICE_ID"]
     token = config["SETTINGS"]["TOKEN"]
     token = refresh_token(token)
-    f = get_file("checklist")
-    b = download_file_as_blob(f)
-    #print(s)
-    #extract_rm_files_from_blob_on_disk(b)
-    extract_rm_files_from_blob_in_memory(b)
-
+    
+    for svg_page in get_pages_as_svg("checklist"):
+        print(svg_page)
