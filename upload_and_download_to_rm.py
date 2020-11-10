@@ -11,6 +11,10 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import img2pdf
 import requests
 
+from io import BytesIO
+
+from librM2svg import rm2svg 
+
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "upload_and_download_to_rm.cfg")
 
@@ -23,7 +27,6 @@ PRESUMED_SERVICE_URL = "https://document-storage-production-dot-remarkable-produ
 
 # Changing this probably breaks things, even if you're not on Windows
 DEVICE_DESC = "desktop-windows"
-
 
 def register_device(connect_code, device_id):
     headers = {"Authorization": "Bearer"}
@@ -39,7 +42,6 @@ def register_device(connect_code, device_id):
         sys.exit()
     return r.text
 
-
 def refresh_token(token):
     headers = {"Authorization": f"Bearer {token}"}
     r = requests.post(REFRESH_URL, headers=headers)
@@ -49,7 +51,6 @@ def refresh_token(token):
         sys.exit()
     return r.text
 
-
 def service_discovery():
     r = requests.get(SERVICE_DISCOVERY_URL)
     if r.status_code != 200:
@@ -57,14 +58,12 @@ def service_discovery():
         return PRESUMED_SERVICE_URL
     return json.loads(r.text)['Host']
 
-
 def upload_img(fname, url=PRESUMED_SERVICE_URL):
     display_name = fname.split("\\")[-1]
     with tempfile.TemporaryFile() as temp:
         temp.write(img2pdf.convert([fname]))
         temp.seek(0)
         upload_pdf(temp.read(), display_name, url)
-
 
 def upload_pdf(pdf_file, display_name="UploadedFile", url=PRESUMED_SERVICE_URL):
     # Make an upload request
@@ -152,19 +151,42 @@ def get_file(filename,url=PRESUMED_SERVICE_URL):
     for file in list_files(url):
         if file["VissibleName"] == filename:            return file
 
-def download_file(file={}, filename="",url=PRESUMED_SERVICE_URL):
+def download_file_as_blob(file={}, filename="",url=PRESUMED_SERVICE_URL):
     if not file:
         file = get_file(filename)
     if not filename:
         filename = file["VissibleName"]
     blob_url = file["BlobURLGet"]
     blob = requests.get(blob_url, stream=True)
+    return blob.content
+    
+def save_downloaded_blob_file(blob):
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
-        for chunk in blob.iter_content(1024):
-            if chunk:
-                temp_file.write(chunk)
+        temp_file.write(blob)
         temp_file.close()
         return temp_file.name
+
+def blob_file_to_ZipFile(blob):
+    filebytes = BytesIO(blob)
+    return ZipFile(filebytes)
+
+def extract_rm_files_from_blob_in_memory(blob):
+    zip = blob_file_to_ZipFile(blob)    
+    return get_svgs_from_zip(zip)
+
+def extract_rm_files_from_blob_on_disk(blob):
+    filename = save_downloaded_blob_file(blob)
+    zip = ZipFile(filename)
+    return get_svgs_from_zip(zip)
+
+def get_svgs_from_zip(zip):
+    for file in zip.namelist():
+        if file.split("/")[1:] and file.endswith(".rm"):
+                rMfile = zip.read(file)
+                s = rm2svg(rMfile)
+                print(s)
+                print("\n\n\n\n")
+                
 
 
 if __name__ == "__main__":
@@ -187,4 +209,9 @@ if __name__ == "__main__":
     device_id = config["SETTINGS"]["DEVICE_ID"]
     token = config["SETTINGS"]["TOKEN"]
     token = refresh_token(token)
+    f = get_file("checklist")
+    b = download_file_as_blob(f)
+    #print(s)
+    #extract_rm_files_from_blob_on_disk(b)
+    extract_rm_files_from_blob_in_memory(b)
 
