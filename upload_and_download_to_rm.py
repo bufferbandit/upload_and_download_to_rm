@@ -12,7 +12,7 @@ import img2pdf
 import requests
 
 
-CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "upload_to_rm.cfg")
+CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "upload_and_download_to_rm.cfg")
 
 REGISTRATION_URL = "https://my.remarkable.com/token/json/2/device/new"
 REFRESH_URL = "https://my.remarkable.com/token/json/2/user/new"
@@ -139,10 +139,10 @@ def upload(fname):
 def list_files(url=PRESUMED_SERVICE_URL):    
     headers = {"Authorization": f"Bearer {token}"}    
     payload = [{
-               "ID": str(uuid4()),
-               "Type": "DocumentType",
-               "Version": 1
-	}]
+            "ID": str(uuid4()),
+            "Type": "DocumentType",
+            "Version": 1
+        }]
     r = requests.get(
             f"{url}/document-storage/json/2/docs?withBlob=true",
             headers=headers)
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         }
         with open(CONFIG_FILE_PATH, "w") as config_file:
             config.write(config_file)
-        print("Config file ('upload_to_rm.cfg') generated, next time you won't be prompted")
+        print("Config file ('upload_and_download_to_rm.cfg') generated, next time you won't be prompted")
     else:
         config.read(CONFIG_FILE_PATH)
 
@@ -188,4 +188,3 @@ if __name__ == "__main__":
     token = config["SETTINGS"]["TOKEN"]
     token = refresh_token(token)
 
-  
