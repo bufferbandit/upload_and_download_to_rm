@@ -135,6 +135,36 @@ def upload(fname):
         return upload_img(fname)
     else:
         print("Unsupported filetype: {fname}")
+		
+def list_files(url=PRESUMED_SERVICE_URL):    
+	headers = {"Authorization": f"Bearer {token}"}    
+			payload = [{
+                "ID": str(uuid4()),
+                "Type": "DocumentType",
+                "Version": 1
+                }]
+    r = requests.get(
+            f"{url}/document-storage/json/2/docs?withBlob=true",
+            headers=headers)
+    return r.json()
+		
+def get_file(filename,url=PRESUMED_SERVICE_URL):
+    for file in list_files(url):
+        if file["VissibleName"] == filename:            return file
+
+def download_file(file={}, filename="",url=PRESUMED_SERVICE_URL):
+    if not file:
+        file = get_file(filename)
+    if not filename:
+        filename = file["VissibleName"]
+    blob_url = file["BlobURLGet"]
+    blob = requests.get(blob_url, stream=True)
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+        for chunk in blob.iter_content(1024):
+            if chunk:
+                temp_file.write(chunk)
+        temp_file.close()
+        return temp_file.name
 
 
 if __name__ == "__main__":
