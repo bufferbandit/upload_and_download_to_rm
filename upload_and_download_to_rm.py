@@ -137,12 +137,12 @@ def upload(fname):
         print("Unsupported filetype: {fname}")
 		
 def list_files(url=PRESUMED_SERVICE_URL):    
-	headers = {"Authorization": f"Bearer {token}"}    
-	payload = [{
-                "ID": str(uuid4()),
-                "Type": "DocumentType",
-                "Version": 1
-                }]
+    headers = {"Authorization": f"Bearer {token}"}    
+    payload = [{
+               "ID": str(uuid4()),
+               "Type": "DocumentType",
+               "Version": 1
+	}]
     r = requests.get(
             f"{url}/document-storage/json/2/docs?withBlob=true",
             headers=headers)
@@ -188,14 +188,4 @@ if __name__ == "__main__":
     token = config["SETTINGS"]["TOKEN"]
     token = refresh_token(token)
 
-    if len(sys.argv) > 1:
-        for filename in sys.argv[1:]:
-            if os.path.isfile(filename):
-                if upload(filename):
-                    print(f"Successfully uploaded {filename}!")
-            else:
-                print(f"File not found: {filename}")
-    else:
-        print("Usage: python upload_to_rm.py FILE1 [FILE2 FILE3..]")
-        print("Supported file types: png, jpg, pdf, tiff. "
-              "PNG files with transparency (alpha channel) are not supported.")
+  
