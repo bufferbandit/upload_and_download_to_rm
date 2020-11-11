@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import os
 import sys
 import json
@@ -12,7 +13,12 @@ from configparser import ConfigParser
 from zipfile import ZipFile, ZIP_DEFLATED
 
 
+from lib_svg_crop import crop_image
+import numpy
 
+
+#cropped_image = crop_image(svg,[85,270],55,55)
+#cropped_image.write_to_file("funcout1.png")
 
 
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "upload_and_download_to_rm.cfg")
@@ -213,6 +219,18 @@ def get_pages_as_svg(filename):
     for svg in get_svg_files_from_blob(blob):
         yield svg
 
+def get_page_nr_as_svg(filename,pagenr,start=0):
+    for count,page in enumerate(get_pages_as_svg(filename),start=start):
+        if count == start:return page
+
+
+def process_svg_page(svg):
+    cropped_image = crop_image(svg,[85,270],55,55)
+    #cropped_image.write_to_file("funcout1.png")
+    numpy_img = numpy.frombuffer(
+                        cropped_image.write_to_memory(),
+                        dtype="int8")
+
 
 if __name__ == "__main__":
     config = ConfigParser()
@@ -236,4 +254,6 @@ if __name__ == "__main__":
     token = refresh_token(token)
     
     for svg_page in get_pages_as_svg("checklist"):
-        print(svg_page)
+        process_svg_page(svg_page)
+        break
+    
