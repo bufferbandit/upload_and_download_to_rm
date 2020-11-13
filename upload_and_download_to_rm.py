@@ -225,11 +225,21 @@ def get_page_nr_as_svg(filename,pagenr,start=0):
 
 
 def process_svg_page(svg):
-    cropped_image = crop_image(svg,[85,270],55,55)
-    #cropped_image.write_to_file("funcout1.png")
+    x_axis = 85
+    for count in range(16): # BUG, THE CROPPING IS NOT RIGHT YET
+        y_axis = (70 + (count + 2 ) * 100) - 0
+        checkbox_img = crop_image(svg,[85,y_axis],55,55)
+        checkbox_img.write_to_file(f"checkbox_{count+1}.png")
+        checked = checkbox_is_checked(checkbox_img)
+        print(f"count={count+1} | checked={checked} | y-axis={y_axis} | size={checkbox_img.get('width')}x{checkbox_img.get('height')}")
+
+def checkbox_is_checked(checkbox_img):
     numpy_img = numpy.frombuffer(
-                        cropped_image.write_to_memory(),
-                        dtype="int8")
+            checkbox_img.write_to_memory(),dtype="int8")
+    return bool(numpy.count_nonzero(numpy_img == 1))
+    
+
+
 
 
 if __name__ == "__main__":
@@ -254,6 +264,8 @@ if __name__ == "__main__":
     token = refresh_token(token)
     
     for svg_page in get_pages_as_svg("checklist"):
-        process_svg_page(svg_page)
+        checked = process_svg_page(svg_page)
+        print(checked)
         break
+   
     
